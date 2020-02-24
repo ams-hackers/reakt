@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "commonjs",
+    "strict": true,
+    "noEmit": true,
+    "moduleResolution": "node",
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "esModuleInterop": true,
+    "sourceMap": true,
+    "outDir": "dist"
+  },
+  "include": ["./src/"],
+  "exclude": ["node_modules", "**/*.spec.ts"]
+}

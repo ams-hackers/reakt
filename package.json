@@ -1,0 +1,12 @@
+{
+  "name": "reakt",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "scripts": {
+    "typecheck": "tsc --build ."
+  },
+  "devDependencies": {
+    "typescript": "^3.8.2"
+  }
+}
