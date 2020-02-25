@@ -18,9 +18,10 @@ function createElement(
   for (let child of children) {
     if (child === undefined) continue;
 
-    if (typeof child === "string") {
+    if (!(child instanceof Element)) {
       child = document.createTextNode(child);
     }
+
     elt.appendChild(child);
   }
 
@@ -46,9 +47,10 @@ function Test({ name }) {
   );
 }
 
-function App() {
+function App({ tick }) {
   return (
     <div>
+      <p>{tick}</p>
       <Test name="hackers" />
       <Test name="ams" />
     </div>
@@ -60,5 +62,7 @@ function render(element: any, root: HTMLElement) {
   root.appendChild(element);
 }
 
-let component = App();
-render(component, document.querySelector("#app"));
+setInterval(() => {
+  let component = <App tick={Date.now()} />;
+  render(component, document.querySelector("#app"));
+}, 1000);
