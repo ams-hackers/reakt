@@ -4,9 +4,11 @@
   "main": "index.js",
   "license": "MIT",
   "scripts": {
-    "typecheck": "tsc --build ."
+    "typecheck": "tsc --build .",
+    "dev": "parcel index.html"
   },
   "devDependencies": {
+    "parcel": "^1.12.4",
     "typescript": "^3.8.2"
   }
 }
