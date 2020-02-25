@@ -1,6 +1,6 @@
 type ShadowElement = {
   type: string;
-  props: { [key: string]: any };
+  props: { [key: string]: unknown };
   children: Array<ShadowNode>;
 };
 
@@ -24,8 +24,8 @@ function unique<E>(arr: E[]) {
 
 function createElement<P>(
   type: string | Component<P>,
-  props: any,
-  ...children: any[]
+  props: P,
+  ...children: ShadowElement[]
 ) {
   if (typeof type !== "string") {
     return type(Object.assign({}, props, { children }));
@@ -39,7 +39,7 @@ function createElement<P>(
 }
 
 let update = (ev: any) => {
-  console.log(ev.target.value);
+  console.log(ev.target && ev.target.value);
 };
 function Test({ name, color }: { name: string; color?: string }) {
   return (
@@ -67,7 +67,7 @@ type Patch =
   | { action: "insert"; element: ShadowNode }
   | {
       action: "update";
-      props: Array<{ key: string; value: any }>;
+      props: Array<{ key: string; value: unknown }>;
       children: Patch[];
     }
   | { action: "update-text"; value: string }
