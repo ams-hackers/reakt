@@ -63,27 +63,31 @@ function App({ tick }: { tick: number }) {
 }
 
 type Patch =
+  | { action: "noop" }
   | { action: "insert"; element: ShadowNode }
   | {
       action: "update";
       props: Array<{ key: string; value: any }>;
-      children: Patch[][];
+      children: Patch[];
     }
   | { action: "update-text"; value: string }
-  | { action: "delete" };
+  | { action: "delete" }
+  | { action: "replace"; element: ShadowNode };
 
-function getDiff(prev: ShadowNode, next: ShadowNode): Patch[] {
+function getDiff(prev: ShadowNode, next: ShadowNode): Patch {
   if (typeof prev === "undefined" && typeof next === "undefined") {
-    return [];
+    return { action: "noop" };
   } else if (typeof prev === "undefined") {
-    return [{ action: "insert", element: next }];
+    return { action: "insert", element: next };
   } else if (typeof next === "undefined") {
-    return [{ action: "delete" }];
+    return { action: "delete" };
   } else if (
     (typeof prev === "string" && typeof next === "string") ||
     (typeof prev === "number" && typeof next === "number")
   ) {
-    return prev === next ? [] : [{ action: "update-text", value: next }];
+    return prev === next
+      ? { action: "noop" }
+      : { action: "update-text", value: next };
   } else if (
     isShadowElement(prev) &&
     isShadowElement(next) &&
@@ -95,7 +99,7 @@ function getDiff(prev: ShadowNode, next: ShadowNode): Patch[] {
     ]).filter(k => prev.props[k] !== next.props[k]);
     const props = updatedKeys.map(key => ({ key, value: next.props[key] }));
 
-    let children: Patch[][] = [];
+    let children: Patch[] = [];
     for (
       let i = 0;
       i < Math.max(prev.children.length, next.children.length);
@@ -104,17 +108,17 @@ function getDiff(prev: ShadowNode, next: ShadowNode): Patch[] {
       children.push(getDiff(prev.children[i], next.children[i]));
     }
 
-    if (props.length === 0 && children.every(p => p.length === 0)) {
-      return [];
+    if (props.length === 0 && children.every(p => p.action === "noop")) {
+      return { action: "noop" };
     } else {
-      return [{ action: "update", props, children }];
+      return { action: "update", props, children };
     }
   } else {
-    return [{ action: "delete" }, { action: "insert", element: next }];
+    return { action: "replace", element: next };
   }
 }
 
-function renderInParent(elem: ShadowNode, parent: HTMLElement) {
+function insertShadowNodeInto(elem: ShadowNode, target: HTMLElement) {
   let element: HTMLElement | Text;
   if (isShadowElement(elem)) {
     element = document.createElement(elem.type);
@@ -123,27 +127,49 @@ function renderInParent(elem: ShadowNode, parent: HTMLElement) {
     }
     for (let child of elem.children) {
       if (child === undefined) continue;
-      renderInParent(child, element);
+      insertShadowNodeInto(child, element);
     }
   } else {
     element = document.createTextNode(elem as string);
   }
+  target.appendChild(element);
+}
 
-  parent.appendChild(element);
+function applyPatchInto(
+  patch: Patch,
+  parent: HTMLElement,
+  target?: HTMLElement
+) {
+  if (!target && patch.action !== "insert") {
+    throw new Error("Target is undefined, expected insert patch");
+  }
+
+  if (patch.action === "insert") {
+    insertShadowNodeInto(patch.element, parent);
+  } else if (patch.action === "delete") {
+    parent.removeChild(target!);
+  } else if (patch.action === "update-text") {
+    target!.textContent = patch.value;
+  } else if (patch.action === "update") {
+    patch.props.forEach(p => {
+      (target as any)[p.key] = p.value;
+    });
+    for (let i = 0; i < patch.children.length; i++) {
+      const diff = patch.children[i];
+      applyPatchInto(diff, target!, target!.childNodes[i] as HTMLElement);
+    }
+  }
 }
 
 let prevShadow: ShadowNode;
 function render(elem: ShadowNode, root: HTMLElement) {
-  root.innerHTML = "";
-  console.log({ prev: prevShadow, next: elem });
   const diff = getDiff(prevShadow, elem);
-  console.log({ diff });
   prevShadow = elem;
-  renderInParent(elem, root);
+  applyPatchInto(diff, root, root.childNodes[0] as HTMLElement);
 }
 
 setInterval(() => {
-  let component = <App tick={1 || Math.floor(Date.now() / 1000)} />;
+  let component = <App tick={Math.floor(Date.now() / 1000)} />;
   const root = document.querySelector("#app") as HTMLElement;
   render(component, root);
 }, 1000);
