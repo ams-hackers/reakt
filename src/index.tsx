@@ -1,5 +1,16 @@
-function createElement(element: string, props: any, ...children: any[]) {
-  let elt = document.createElement(element);
+function createElement(
+  element: string | Function,
+  props: any,
+  ...children: any[]
+) {
+  let elt;
+
+  if (typeof element === "string") {
+    elt = document.createElement(element);
+  } else {
+    elt = element(Object.assign({}, {}));
+  }
+
   for (let child of children) {
     if (typeof child === "string") {
       child = document.createTextNode(child);
@@ -29,10 +40,19 @@ function Test() {
   );
 }
 
+function App() {
+  return (
+    <div>
+      <Test />
+      <Test />
+    </div>
+  );
+}
+
 function render(element: any, root: HTMLElement) {
   root.innerHTML = "";
   root.appendChild(element);
 }
 
-let component = Test();
+let component = App();
 render(component, document.querySelector("#app"));
