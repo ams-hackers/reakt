@@ -1,11 +1,17 @@
 type Component = (props: any) => HTMLElement;
 
+declare namespace JSX {
+  interface IntrinsicElements {
+    [elemName: string]: any;
+  }
+}
+
 function createElement(
   element: string | Component,
   props: any,
   ...children: any[]
 ) {
-  let elt;
+  let elt: any;
 
   // console.log("createElement", { element, props, children });
 
@@ -32,8 +38,8 @@ function createElement(
   return elt;
 }
 
-function Test({ name }) {
-  let update = ev => {
+function Test({ name }: { name: string }) {
+  let update = (ev: any) => {
     console.log(ev.target.value);
   };
 
@@ -47,7 +53,7 @@ function Test({ name }) {
   );
 }
 
-function App({ tick }) {
+function App({ tick }: { tick: number }) {
   return (
     <div>
       <p>{tick}</p>
@@ -64,5 +70,5 @@ function render(element: any, root: HTMLElement) {
 
 setInterval(() => {
   let component = <App tick={Date.now()} />;
-  render(component, document.querySelector("#app"));
+  render(component, document.querySelector("#app") as HTMLElement);
 }, 1000);
