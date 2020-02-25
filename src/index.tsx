@@ -15,10 +15,15 @@ function createElement(element: string, props: any, ...children: any[]) {
 }
 
 function Test() {
+  let update = ev => {
+    console.log(ev.target.value);
+  };
+
   return (
     <div style="color: red">
       <p>
         Hello <strong>world</strong>
+        <input type="text" onkeydown={update} />
       </p>
     </div>
   );
