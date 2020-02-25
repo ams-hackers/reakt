@@ -1,17 +1,23 @@
+type Component = (props: any) => HTMLElement;
+
 function createElement(
-  element: string | Function,
+  element: string | Component,
   props: any,
   ...children: any[]
 ) {
   let elt;
 
+  // console.log("createElement", { element, props, children });
+
   if (typeof element === "string") {
     elt = document.createElement(element);
   } else {
-    elt = element(Object.assign({}, {}));
+    elt = element(Object.assign({}, props, { children }));
   }
 
   for (let child of children) {
+    if (child === undefined) continue;
+
     if (typeof child === "string") {
       child = document.createTextNode(child);
     }
@@ -25,7 +31,7 @@ function createElement(
   return elt;
 }
 
-function Test() {
+function Test({ name }) {
   let update = ev => {
     console.log(ev.target.value);
   };
@@ -33,7 +39,7 @@ function Test() {
   return (
     <div style="color: red">
       <p>
-        Hello <strong>world</strong>
+        Hello <strong>{name}</strong>
         <input type="text" onkeydown={update} />
       </p>
     </div>
@@ -43,8 +49,8 @@ function Test() {
 function App() {
   return (
     <div>
-      <Test />
-      <Test />
+      <Test name="hackers" />
+      <Test name="ams" />
     </div>
   );
 }
