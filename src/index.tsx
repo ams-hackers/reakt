@@ -1,9 +1,12 @@
 type ShadowElement = {
   type: string;
-  props: any;
-  children: Array<ShadowElement | string>;
+  props: { [key: string]: any };
+  children: Array<ShadowNode>;
 };
-type Component<P> = (props: P) => ShadowElement;
+
+type ShadowNode = ShadowElement | string | undefined;
+
+type Component<P> = (props: P) => ShadowNode;
 
 declare namespace JSX {
   interface IntrinsicElements {
@@ -11,37 +14,13 @@ declare namespace JSX {
   }
 }
 
-// function createElement<P>(
-//   element: string | Component<P>,
-//   props: any,
-//   ...children: any[]
-// ) {
-//   let elt: any;
-//
-//   // console.log("createElement", { element, props, children });
-//
-//   if (typeof element === "string") {
-//     elt = document.createElement(element);
-//   } else {
-//     elt = element(Object.assign({}, props, { children }));
-//   }
-//
-//   for (let child of children) {
-//     if (child === undefined) continue;
-//
-//     if (!(child instanceof Element)) {
-//       child = document.createTextNode(child);
-//     }
-//
-//     elt.appendChild(child);
-//   }
-//
-//   for (let propName in props) {
-//     elt[propName] = props[propName];
-//   }
-//
-//   return elt;
-// }
+function isShadowElement(elem: ShadowNode): elem is ShadowElement {
+  return typeof (elem as any).type === "string";
+}
+
+function unique<E>(arr: E[]) {
+  return arr.filter((elem, ix) => arr.indexOf(elem) === ix);
+}
 
 function createElement<P>(
   type: string | Component<P>,
@@ -54,16 +33,15 @@ function createElement<P>(
 
   return {
     type,
-    props,
+    props: props || {},
     children
   };
 }
 
+let update = (ev: any) => {
+  console.log(ev.target.value);
+};
 function Test({ name, color }: { name: string; color?: string }) {
-  let update = (ev: any) => {
-    console.log(ev.target.value);
-  };
-
   return (
     <div style={`color: ${color}`}>
       <p>
@@ -84,11 +62,59 @@ function App({ tick }: { tick: number }) {
   );
 }
 
-function isShadowElement(elem: ShadowElement | string): elem is ShadowElement {
-  return typeof (elem as any).type === "string";
+type Patch =
+  | { action: "insert"; element: ShadowNode }
+  | {
+      action: "update";
+      props: Array<{ key: string; value: any }>;
+      children: Patch[][];
+    }
+  | { action: "update-text"; value: string }
+  | { action: "delete" };
+
+function getDiff(prev: ShadowNode, next: ShadowNode): Patch[] {
+  if (typeof prev === "undefined" && typeof next === "undefined") {
+    return [];
+  } else if (typeof prev === "undefined") {
+    return [{ action: "insert", element: next }];
+  } else if (typeof next === "undefined") {
+    return [{ action: "delete" }];
+  } else if (
+    (typeof prev === "string" && typeof next === "string") ||
+    (typeof prev === "number" && typeof next === "number")
+  ) {
+    return prev === next ? [] : [{ action: "update-text", value: next }];
+  } else if (
+    isShadowElement(prev) &&
+    isShadowElement(next) &&
+    prev.type === next.type
+  ) {
+    const updatedKeys = unique([
+      ...Object.keys(prev.props),
+      ...Object.keys(next.props)
+    ]).filter(k => prev.props[k] !== next.props[k]);
+    const props = updatedKeys.map(key => ({ key, value: next.props[key] }));
+
+    let children: Patch[][] = [];
+    for (
+      let i = 0;
+      i < Math.max(prev.children.length, next.children.length);
+      i++
+    ) {
+      children.push(getDiff(prev.children[i], next.children[i]));
+    }
+
+    if (props.length === 0 && children.every(p => p.length === 0)) {
+      return [];
+    } else {
+      return [{ action: "update", props, children }];
+    }
+  } else {
+    return [{ action: "delete" }, { action: "insert", element: next }];
+  }
 }
 
-function render(elem: ShadowElement | string, parent: HTMLElement) {
+function renderInParent(elem: ShadowNode, parent: HTMLElement) {
   let element: HTMLElement | Text;
   if (isShadowElement(elem)) {
     element = document.createElement(elem.type);
@@ -97,7 +123,7 @@ function render(elem: ShadowElement | string, parent: HTMLElement) {
     }
     for (let child of elem.children) {
       if (child === undefined) continue;
-      render(child, element);
+      renderInParent(child, element);
     }
   } else {
     element = document.createTextNode(elem as string);
@@ -106,9 +132,18 @@ function render(elem: ShadowElement | string, parent: HTMLElement) {
   parent.appendChild(element);
 }
 
-setInterval(() => {
-  let component = <App tick={Math.floor(Date.now() / 1000)} />;
-  const root = document.querySelector("#app") as HTMLElement;
+let prevShadow: ShadowNode;
+function render(elem: ShadowNode, root: HTMLElement) {
   root.innerHTML = "";
+  console.log({ prev: prevShadow, next: elem });
+  const diff = getDiff(prevShadow, elem);
+  console.log({ diff });
+  prevShadow = elem;
+  renderInParent(elem, root);
+}
+
+setInterval(() => {
+  let component = <App tick={1 || Math.floor(Date.now() / 1000)} />;
+  const root = document.querySelector("#app") as HTMLElement;
   render(component, root);
 }, 1000);
