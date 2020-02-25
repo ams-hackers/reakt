@@ -10,7 +10,10 @@
     "noImplicitReturns": true,
     "esModuleInterop": true,
     "sourceMap": true,
-    "outDir": "dist"
+    "outDir": "dist",
+
+    "jsxFactory": "createElement",
+    "jsx": "react"
   },
   "include": ["./src/"],
   "exclude": ["node_modules", "**/*.spec.ts"]
