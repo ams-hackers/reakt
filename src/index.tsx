@@ -123,7 +123,7 @@ function getDiff(prev: ShadowNode, next: ShadowNode): Patch {
   }
 }
 
-function insertShadowNodeInto(elem: ShadowNode, target: HTMLElement) {
+function insertShadowNodeInto(elem: ShadowNode, target: Node) {
   let element: HTMLElement | Text;
   if (isShadowElement(elem)) {
     element = document.createElement(elem.type);
@@ -142,11 +142,7 @@ function insertShadowNodeInto(elem: ShadowNode, target: HTMLElement) {
 
 function exhaustiveCheck(_: never) {}
 
-function applyPatchInto(
-  patch: Patch,
-  parent: HTMLElement,
-  target?: HTMLElement
-): void {
+function applyPatchInto(patch: Patch, parent: Node, target?: Node): void {
   if (!target && patch.action !== "insert") {
     throw new Error("Target is undefined, expected insert patch");
   }
@@ -169,7 +165,7 @@ function applyPatchInto(
       });
       for (let i = 0; i < patch.children.length; i++) {
         const diff = patch.children[i];
-        applyPatchInto(diff, target!, target!.childNodes[i] as HTMLElement);
+        applyPatchInto(diff, target!, target!.childNodes[i]);
       }
       return;
     case "replace":
@@ -182,14 +178,14 @@ function applyPatchInto(
 }
 
 let prevShadow: ShadowNode;
-function render(elem: ShadowNode, root: HTMLElement) {
+function render(elem: ShadowNode, root: Node) {
   const diff = getDiff(prevShadow, elem);
   prevShadow = elem;
-  applyPatchInto(diff, root, root.childNodes[0] as HTMLElement);
+  applyPatchInto(diff, root, root.childNodes[0]);
 }
 
 setInterval(() => {
   let component = <App tick={Math.floor(Date.now() / 1000)} />;
-  const root = document.querySelector("#app") as HTMLElement;
+  const root = document.querySelector("#app")!;
   render(component, root);
 }, 1000);
