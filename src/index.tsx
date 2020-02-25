@@ -75,7 +75,12 @@ type Patch =
   | { action: "replace"; element: ShadowNode };
 
 function getDiff(prev: ShadowNode, next: ShadowNode): Patch {
-  if (typeof prev === "undefined" && typeof next === "undefined") {
+  if (prev === next) {
+    // This case is an optimization. We know ShadowNode are immutable
+    // so if they objects are identical, we don't need to check
+    // children at all. This is useful if a component is memoized.
+    return { action: "noop" };
+  } else if (typeof prev === "undefined" && typeof next === "undefined") {
     return { action: "noop" };
   } else if (typeof prev === "undefined") {
     return { action: "insert", element: next };
