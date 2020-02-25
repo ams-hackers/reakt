@@ -135,30 +135,45 @@ function insertShadowNodeInto(elem: ShadowNode, target: HTMLElement) {
   target.appendChild(element);
 }
 
+function exhaustiveCheck(_: never) {}
+
 function applyPatchInto(
   patch: Patch,
   parent: HTMLElement,
   target?: HTMLElement
-) {
+): void {
   if (!target && patch.action !== "insert") {
     throw new Error("Target is undefined, expected insert patch");
   }
 
-  if (patch.action === "insert") {
-    insertShadowNodeInto(patch.element, parent);
-  } else if (patch.action === "delete") {
-    parent.removeChild(target!);
-  } else if (patch.action === "update-text") {
-    target!.textContent = patch.value;
-  } else if (patch.action === "update") {
-    patch.props.forEach(p => {
-      (target as any)[p.key] = p.value;
-    });
-    for (let i = 0; i < patch.children.length; i++) {
-      const diff = patch.children[i];
-      applyPatchInto(diff, target!, target!.childNodes[i] as HTMLElement);
-    }
+  switch (patch.action) {
+    case "noop":
+      return;
+    case "insert":
+      insertShadowNodeInto(patch.element, parent);
+      return;
+    case "delete":
+      parent.removeChild(target!);
+      return;
+    case "update-text":
+      target!.textContent = patch.value;
+      return;
+    case "update":
+      patch.props.forEach(p => {
+        (target as any)[p.key] = p.value;
+      });
+      for (let i = 0; i < patch.children.length; i++) {
+        const diff = patch.children[i];
+        applyPatchInto(diff, target!, target!.childNodes[i] as HTMLElement);
+      }
+      return;
+    case "replace":
+      parent.removeChild(target!);
+      insertShadowNodeInto(patch.element, parent);
+      return;
   }
+
+  exhaustiveCheck(patch);
 }
 
 let prevShadow: ShadowNode;
