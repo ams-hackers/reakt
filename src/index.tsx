@@ -123,7 +123,7 @@ function getDiff(prev: ShadowNode, next: ShadowNode): Patch {
   }
 }
 
-function insertShadowNodeInto(elem: ShadowNode, target: Node) {
+function shadowNodeToHTML(elem: ShadowNode): Node {
   let element: HTMLElement | Text;
   if (isShadowElement(elem)) {
     element = document.createElement(elem.type);
@@ -132,12 +132,17 @@ function insertShadowNodeInto(elem: ShadowNode, target: Node) {
     }
     for (let child of elem.children) {
       if (child === undefined) continue;
-      insertShadowNodeInto(child, element);
+      let childElem = shadowNodeToHTML(child);
+      element.appendChild(childElem);
     }
   } else {
     element = document.createTextNode(elem as string);
   }
-  target.appendChild(element);
+  return element;
+}
+
+function insertShadowNodeInto(elem: ShadowNode, target: Node) {
+  target.appendChild(shadowNodeToHTML(elem));
 }
 
 function exhaustiveCheck(_: never) {}
@@ -169,8 +174,7 @@ function applyPatchInto(patch: Patch, parent: Node, target?: Node): void {
       }
       return;
     case "replace":
-      parent.removeChild(target!);
-      insertShadowNodeInto(patch.element, parent);
+      parent.replaceChild(shadowNodeToHTML(patch.element), target!);
       return;
   }
 
