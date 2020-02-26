@@ -56,8 +56,9 @@ function App({ tick }: { tick: number }) {
   return (
     <div>
       <p>{tick}</p>
+      {tick % 2 === 0 ? <p>odd!</p> : undefined}
       <Test name="hackers" color={tick % 2 === 0 ? "blue" : "green"} />
-      <Test name="ams" />
+      <Test name="ams" color="red" />
     </div>
   );
 }
@@ -110,6 +111,16 @@ function getDiff(prev: ShadowNode, next: ShadowNode): Patch {
       i < Math.max(prev.children.length, next.children.length);
       i++
     ) {
+      // We want to make sure that each children here matches one DOM
+      // element (except the final inserts).
+      //
+      // `undefined` shadow nodes are not rendered. So if a node is
+      // undefined before and after, there is no DOM elemnet for
+      // it. So we will skip it.
+      //
+      if (prev.children[i] === undefined && next.children[i] === undefined) {
+        continue;
+      }
       children.push(getDiff(prev.children[i], next.children[i]));
     }
 
@@ -141,22 +152,18 @@ function shadowNodeToHTML(elem: ShadowNode): Node {
   return element;
 }
 
-function insertShadowNodeInto(elem: ShadowNode, target: Node) {
-  target.appendChild(shadowNodeToHTML(elem));
+function insertShadowNodeBefore(elem: ShadowNode, parent: Node, target?: Node) {
+  parent.insertBefore(shadowNodeToHTML(elem), target || null);
 }
 
 function exhaustiveCheck(_: never) {}
 
 function applyPatchInto(patch: Patch, parent: Node, target?: Node): void {
-  if (!target && patch.action !== "insert") {
-    throw new Error("Target is undefined, expected insert patch");
-  }
-
   switch (patch.action) {
     case "noop":
       return;
     case "insert":
-      insertShadowNodeInto(patch.element, parent);
+      insertShadowNodeBefore(patch.element, parent, target);
       return;
     case "delete":
       parent.removeChild(target!);
@@ -168,9 +175,18 @@ function applyPatchInto(patch: Patch, parent: Node, target?: Node): void {
       patch.props.forEach(p => {
         (target as any)[p.key] = p.value;
       });
+      let delta = 0;
       for (let i = 0; i < patch.children.length; i++) {
         const diff = patch.children[i];
-        applyPatchInto(diff, target!, target!.childNodes[i]);
+        applyPatchInto(diff, target!, target!.childNodes[i + delta]);
+        switch (diff.action) {
+          case "insert":
+            delta++;
+            break;
+          case "delete":
+            delta--;
+            break;
+        }
       }
       return;
     case "replace":
