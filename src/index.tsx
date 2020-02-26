@@ -4,7 +4,7 @@ type ShadowElement = {
   children: Array<ShadowNode>;
 };
 
-type ShadowNode = ShadowElement | string | undefined;
+type ShadowNode = ShadowElement | string | undefined | null;
 
 type Component<P> = (props: P) => ShadowNode;
 
@@ -12,6 +12,10 @@ declare namespace JSX {
   interface IntrinsicElements {
     [elemName: string]: any;
   }
+}
+
+function isNil(elem: ShadowNode): boolean {
+  return elem === undefined || elem === null;
 }
 
 function isShadowElement(elem: ShadowNode): elem is ShadowElement {
@@ -56,7 +60,7 @@ function App({ tick }: { tick: number }) {
   return (
     <div>
       <p>{tick}</p>
-      {tick % 2 === 0 ? <p>odd!</p> : undefined}
+      {tick % 2 === 0 ? <p>odd!</p> : null}
       <Test name="hackers" color={tick % 2 === 0 ? "blue" : "green"} />
       <Test name="ams" color="red" />
     </div>
@@ -81,11 +85,11 @@ function getDiff(prev: ShadowNode, next: ShadowNode): Patch {
     // so if they objects are identical, we don't need to check
     // children at all. This is useful if a component is memoized.
     return { action: "noop" };
-  } else if (typeof prev === "undefined" && typeof next === "undefined") {
+  } else if (isNil(prev) && isNil(next)) {
     return { action: "noop" };
-  } else if (typeof prev === "undefined") {
+  } else if (isNil(prev)) {
     return { action: "insert", element: next };
-  } else if (typeof next === "undefined") {
+  } else if (isNil(next)) {
     return { action: "delete" };
   } else if (
     (typeof prev === "string" && typeof next === "string") ||
@@ -118,7 +122,7 @@ function getDiff(prev: ShadowNode, next: ShadowNode): Patch {
       // undefined before and after, there is no DOM elemnet for
       // it. So we will skip it.
       //
-      if (prev.children[i] === undefined && next.children[i] === undefined) {
+      if (isNil(prev.children[i]) && isNil(next.children[i])) {
         continue;
       }
       children.push(getDiff(prev.children[i], next.children[i]));
@@ -142,7 +146,7 @@ function shadowNodeToHTML(elem: ShadowNode): Node {
       (element as any)[propName] = elem.props[propName];
     }
     for (let child of elem.children) {
-      if (child === undefined) continue;
+      if (isNil(child)) continue;
       let childElem = shadowNodeToHTML(child);
       element.appendChild(childElem);
     }
