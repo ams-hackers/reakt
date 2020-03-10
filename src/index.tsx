@@ -1,4 +1,4 @@
-import { createElement, render } from "./reakt";
+import { createElement, render, useRenderCounter } from "./reakt";
 
 declare namespace JSX {
   interface IntrinsicElements {
@@ -11,11 +11,12 @@ let update = (ev: any) => {
 };
 
 function Test({ name, color }: { name: string; color?: string }) {
+  const renderCount = useRenderCounter();
   return (
     <div style={`color: ${color}`}>
       <p>
         Hello <strong>{name}</strong>
-        <input type="text" onkeydown={update} />
+        <input type="text" onkeydown={update} /> (rendered {renderCount} times)
       </p>
     </div>
   );

@@ -12,15 +12,19 @@ type ShadowUserElement = {
   type: Component<unknown>;
   props: { [key: string]: unknown };
   output?: ShadowNode; // result of calling componentFunction(props)
+  stateSlot?: unknown; // preserve the value of this across versions of the shadow node tree
 };
 
 type ShadowElement = ShadowPrimitiveElement | ShadowUserElement;
 
-function getRenderedChild(node: ShadowUserElement): ShadowNode {
+let currentElement: ShadowUserElement | null = null;
+function getComponentOutput(node: ShadowUserElement): ShadowNode {
   if (node.output) {
     return node.output;
   } else {
+    currentElement = node;
     const output = node.type(node.props);
+    currentElement = null;
     node.output = output;
     return output;
   }
@@ -72,6 +76,15 @@ export function createElement<P>(
   }
 }
 
+export function useRenderCounter() {
+  if (typeof currentElement!.stateSlot === "undefined") {
+    // newly mounted component
+    currentElement!.stateSlot = 0;
+  }
+  (currentElement!.stateSlot as number)++;
+  return currentElement!.stateSlot;
+}
+
 export type Patch =
   | { action: "noop" }
   | { action: "insert"; element: ShadowNode }
@@ -84,7 +97,10 @@ export type Patch =
   | { action: "delete" }
   | { action: "replace"; element: ShadowNode };
 
-export function getDiff(prev: ShadowNode, next: ShadowNode): Patch | undefined {
+export function reconcile(
+  prev: ShadowNode,
+  next: ShadowNode
+): Patch | undefined {
   if (prev === next) {
     // This case is an optimization. We know ShadowNode are immutable
     // so if they objects are identical, we don't need to check
@@ -132,7 +148,7 @@ export function getDiff(prev: ShadowNode, next: ShadowNode): Patch | undefined {
       if (isNil(prev.children[i]) && isNil(next.children[i])) {
         continue;
       }
-      const diff = getDiff(prev.children[i], next.children[i]);
+      const diff = reconcile(prev.children[i], next.children[i]);
       if (diff) {
         children.push(diff);
       }
@@ -148,7 +164,8 @@ export function getDiff(prev: ShadowNode, next: ShadowNode): Patch | undefined {
     isUserShadowElement(next) &&
     prev.type == next.type
   ) {
-    return getDiff(getRenderedChild(prev), getRenderedChild(next));
+    next.stateSlot = prev.stateSlot;
+    return reconcile(getComponentOutput(prev), getComponentOutput(next));
   } else {
     return { action: "replace", element: next };
   }
@@ -159,7 +176,7 @@ function shadowNodeToHTML(elem: ShadowNode): Node {
   if (!isShadowElement(elem)) {
     element = document.createTextNode(elem as string);
   } else if (elem.kind === "user") {
-    return shadowNodeToHTML(getRenderedChild(elem));
+    return shadowNodeToHTML(getComponentOutput(elem));
   } else {
     element = document.createElement(elem.type);
     for (let propName in elem.props) {
@@ -220,7 +237,7 @@ function applyPatchInto(patch: Patch, parent: Node, target?: Node): void {
 
 let prevShadow: ShadowNode;
 export function render(elem: ShadowNode, root: Node) {
-  const diff = getDiff(prevShadow, elem);
+  const diff = reconcile(prevShadow, elem);
   prevShadow = elem;
   if (diff) {
     applyPatchInto(diff, root, root.childNodes[0]);
