@@ -25,8 +25,6 @@ function Test({ name, color }: { name: string; color?: string }) {
 
 function App() {
   const tick = useTick(1000);
-  // console.log("APP TICK", tick);
-
   return (
     <div>
       <p>{tick}</p>
@@ -37,8 +35,8 @@ function App() {
   );
 }
 
-setInterval(() => {
-  let component = <App />;
-  const root = document.querySelector("#app")!;
-  render(component, root);
-}, 2000);
+// setInterval(() => {
+let component = <App />;
+const root = document.querySelector("#app")!;
+render(component, root);
+// }, 2000);

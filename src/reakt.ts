@@ -19,15 +19,11 @@ type ShadowElement = ShadowPrimitiveElement | ShadowUserElement;
 
 let currentElement: ShadowUserElement | null = null;
 function getComponentOutput(node: ShadowUserElement): ShadowNode {
-  if (node.output) {
-    return node.output;
-  } else {
-    currentElement = node;
-    const output = node.type(node.props);
-    currentElement = null;
-    node.output = output;
-    return output;
-  }
+  currentElement = node;
+  const output = node.type(node.props);
+  currentElement = null;
+  node.output = output;
+  return output;
 }
 
 export type ShadowNode =
@@ -83,8 +79,7 @@ export function useTick(delay: number) {
     let elem = currentElement!;
     setInterval(() => {
       ((elem.stateSlot as any).value as number)++;
-      elem.output = undefined; // invalidate previous output
-      // render(prevShadow, currentRoot);
+      render(prevShadow, currentRoot);
     }, delay);
   }
 
@@ -107,8 +102,6 @@ export function reconcile(
   prev: ShadowNode,
   next: ShadowNode
 ): Patch | undefined {
-  console.log("reconcile");
-
   if (isNil(prev) && isNil(next)) {
     return undefined;
   } else if (isNil(prev)) {
@@ -168,7 +161,9 @@ export function reconcile(
     prev.type == next.type
   ) {
     next.stateSlot = prev.stateSlot;
-    return reconcile(getComponentOutput(prev), getComponentOutput(next));
+    // The previous element must have been rendered already, so we
+    // take the output.
+    return reconcile(prev.output, getComponentOutput(next));
   } else {
     return { action: "replace", element: next };
   }
@@ -243,7 +238,6 @@ let currentRoot: Node;
 export function render(elem: ShadowNode, root: Node) {
   currentRoot = root;
   const diff = reconcile(prevShadow, elem);
-  console.log({ elem, prevShadow, diff });
   prevShadow = elem;
   if (diff) {
     applyPatchInto(diff, root, root.childNodes[0]);
