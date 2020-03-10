@@ -1,17 +1,54 @@
 import { isNil, unique } from "./utils";
 
-type ShadowElement = {
+type ShadowPrimitiveElement = {
+  kind: "primitive";
   type: string;
   props: { [key: string]: unknown };
   children: Array<ShadowNode>;
 };
 
-export type ShadowNode = ShadowElement | string | undefined | null;
+type ShadowUserElement = {
+  kind: "user";
+  type: Component<unknown>;
+  props: { [key: string]: unknown };
+  output?: ShadowNode; // result of calling componentFunction(props)
+};
+
+type ShadowElement = ShadowPrimitiveElement | ShadowUserElement;
+
+function getRenderedChild(node: ShadowUserElement): ShadowNode {
+  if (node.output) {
+    return node.output;
+  } else {
+    const output = node.type(node.props);
+    node.output = output;
+    return output;
+  }
+}
+
+export type ShadowNode =
+  | ShadowPrimitiveElement
+  | ShadowElement
+  | string
+  | undefined
+  | null;
 
 type Component<P> = (props: P) => ShadowNode;
 
 export function isShadowElement(elem: ShadowNode): elem is ShadowElement {
-  return typeof (elem as any).type === "string";
+  return typeof (elem as any).kind === "string";
+}
+
+export function isPrimitiveShadowElement(
+  elem: ShadowNode
+): elem is ShadowPrimitiveElement {
+  return isShadowElement(elem) && elem.kind === "primitive";
+}
+
+export function isUserShadowElement(
+  elem: ShadowNode
+): elem is ShadowUserElement {
+  return isShadowElement(elem) && elem.kind === "user";
 }
 
 export function createElement<P>(
@@ -20,14 +57,19 @@ export function createElement<P>(
   ...children: ShadowElement[]
 ): ShadowNode {
   if (typeof type !== "string") {
-    return type(Object.assign({}, props, { children }));
+    return {
+      kind: "user",
+      type: type as Component<unknown>,
+      props: { ...props, children }
+    };
+  } else {
+    return {
+      kind: "primitive",
+      type,
+      props: props || {},
+      children
+    };
   }
-
-  return {
-    type,
-    props: props || {},
-    children
-  };
 }
 
 export type Patch =
@@ -62,14 +104,16 @@ export function getDiff(prev: ShadowNode, next: ShadowNode): Patch | undefined {
       ? { action: "noop" }
       : { action: "update-text", value: next };
   } else if (
-    isShadowElement(prev) &&
-    isShadowElement(next) &&
+    isPrimitiveShadowElement(prev) &&
+    isPrimitiveShadowElement(next) &&
     prev.type === next.type
   ) {
     const updatedKeys = unique([
       ...Object.keys(prev.props),
       ...Object.keys(next.props)
-    ]).filter(k => prev.props[k] !== next.props[k]);
+    ])
+      .filter(k => prev.props[k] !== next.props[k])
+      .filter(k => k !== "children");
     const props = updatedKeys.map(key => ({ key, value: next.props[key] }));
 
     let children: Patch[] = [];
@@ -99,6 +143,12 @@ export function getDiff(prev: ShadowNode, next: ShadowNode): Patch | undefined {
     } else {
       return { action: "update", props, children };
     }
+  } else if (
+    isUserShadowElement(prev) &&
+    isUserShadowElement(next) &&
+    prev.type == next.type
+  ) {
+    return getDiff(getRenderedChild(prev), getRenderedChild(next));
   } else {
     return { action: "replace", element: next };
   }
@@ -106,7 +156,11 @@ export function getDiff(prev: ShadowNode, next: ShadowNode): Patch | undefined {
 
 function shadowNodeToHTML(elem: ShadowNode): Node {
   let element: HTMLElement | Text;
-  if (isShadowElement(elem)) {
+  if (!isShadowElement(elem)) {
+    element = document.createTextNode(elem as string);
+  } else if (elem.kind === "user") {
+    return shadowNodeToHTML(getRenderedChild(elem));
+  } else {
     element = document.createElement(elem.type);
     for (let propName in elem.props) {
       (element as any)[propName] = elem.props[propName];
@@ -116,8 +170,6 @@ function shadowNodeToHTML(elem: ShadowNode): Node {
       let childElem = shadowNodeToHTML(child);
       element.appendChild(childElem);
     }
-  } else {
-    element = document.createTextNode(elem as string);
   }
   return element;
 }
