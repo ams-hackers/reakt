@@ -222,5 +222,7 @@ let prevShadow: ShadowNode;
 export function render(elem: ShadowNode, root: Node) {
   const diff = getDiff(prevShadow, elem);
   prevShadow = elem;
-  applyPatchInto(diff, root, root.childNodes[0]);
+  if (diff) {
+    applyPatchInto(diff, root, root.childNodes[0]);
+  }
 }
