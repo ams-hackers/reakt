@@ -76,13 +76,19 @@ export function createElement<P>(
   }
 }
 
-export function useRenderCounter() {
+export function useTick(delay: number) {
   if (typeof currentElement!.stateSlot === "undefined") {
     // newly mounted component
-    currentElement!.stateSlot = 0;
+    currentElement!.stateSlot = { value: 0 };
+    let elem = currentElement!;
+    setInterval(() => {
+      ((elem.stateSlot as any).value as number)++;
+      elem.output = undefined; // invalidate previous output
+      // render(prevShadow, currentRoot);
+    }, delay);
   }
-  (currentElement!.stateSlot as number)++;
-  return currentElement!.stateSlot;
+
+  return (currentElement!.stateSlot as any).value;
 }
 
 export type Patch =
@@ -101,12 +107,9 @@ export function reconcile(
   prev: ShadowNode,
   next: ShadowNode
 ): Patch | undefined {
-  if (prev === next) {
-    // This case is an optimization. We know ShadowNode are immutable
-    // so if they objects are identical, we don't need to check
-    // children at all. This is useful if a component is memoized.
-    return { action: "noop" };
-  } else if (isNil(prev) && isNil(next)) {
+  console.log("reconcile");
+
+  if (isNil(prev) && isNil(next)) {
     return undefined;
   } else if (isNil(prev)) {
     return { action: "insert", element: next };
@@ -236,8 +239,11 @@ function applyPatchInto(patch: Patch, parent: Node, target?: Node): void {
 }
 
 let prevShadow: ShadowNode;
+let currentRoot: Node;
 export function render(elem: ShadowNode, root: Node) {
+  currentRoot = root;
   const diff = reconcile(prevShadow, elem);
+  console.log({ elem, prevShadow, diff });
   prevShadow = elem;
   if (diff) {
     applyPatchInto(diff, root, root.childNodes[0]);
