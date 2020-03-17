@@ -17,13 +17,9 @@ type ShadowUserElement = {
 type ShadowElement = ShadowPrimitiveElement | ShadowUserElement;
 
 function getRenderedChild(node: ShadowUserElement): ShadowNode {
-  if (node.output) {
-    return node.output;
-  } else {
-    const output = node.type(node.props);
-    node.output = output;
-    return output;
-  }
+  const output = node.type(node.props);
+  node.output = output;
+  return output;
 }
 
 export type ShadowNode =
