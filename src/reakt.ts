@@ -19,15 +19,11 @@ type ShadowElement = ShadowPrimitiveElement | ShadowUserElement;
 
 let currentElement: ShadowUserElement | null = null;
 function getComponentOutput(node: ShadowUserElement): ShadowNode {
-  if (node.output) {
-    return node.output;
-  } else {
-    currentElement = node;
-    const output = node.type(node.props);
-    currentElement = null;
-    node.output = output;
-    return output;
-  }
+  currentElement = node;
+  const output = node.type(node.props);
+  currentElement = null;
+  node.output = output;
+  return output;
 }
 
 export type ShadowNode =
@@ -76,13 +72,18 @@ export function createElement<P>(
   }
 }
 
-export function useRenderCounter() {
+export function useTick(delay: number) {
   if (typeof currentElement!.stateSlot === "undefined") {
     // newly mounted component
-    currentElement!.stateSlot = 0;
+    currentElement!.stateSlot = { value: 0 };
+    let elem = currentElement!;
+    setInterval(() => {
+      ((elem.stateSlot as any).value as number)++;
+      render(prevShadow, currentRoot);
+    }, delay);
   }
-  (currentElement!.stateSlot as number)++;
-  return currentElement!.stateSlot;
+
+  return (currentElement!.stateSlot as any).value;
 }
 
 export type Patch =
@@ -101,12 +102,7 @@ export function reconcile(
   prev: ShadowNode,
   next: ShadowNode
 ): Patch | undefined {
-  if (prev === next) {
-    // This case is an optimization. We know ShadowNode are immutable
-    // so if they objects are identical, we don't need to check
-    // children at all. This is useful if a component is memoized.
-    return { action: "noop" };
-  } else if (isNil(prev) && isNil(next)) {
+  if (isNil(prev) && isNil(next)) {
     return undefined;
   } else if (isNil(prev)) {
     return { action: "insert", element: next };
@@ -165,7 +161,9 @@ export function reconcile(
     prev.type == next.type
   ) {
     next.stateSlot = prev.stateSlot;
-    return reconcile(getComponentOutput(prev), getComponentOutput(next));
+    // The previous element must have been rendered already, so we
+    // take the output.
+    return reconcile(prev.output, getComponentOutput(next));
   } else {
     return { action: "replace", element: next };
   }
@@ -236,7 +234,9 @@ function applyPatchInto(patch: Patch, parent: Node, target?: Node): void {
 }
 
 let prevShadow: ShadowNode;
+let currentRoot: Node;
 export function render(elem: ShadowNode, root: Node) {
+  currentRoot = root;
   const diff = reconcile(prevShadow, elem);
   prevShadow = elem;
   if (diff) {

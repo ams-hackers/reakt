@@ -1,4 +1,4 @@
-import { createElement, render, useRenderCounter } from "./reakt";
+import { createElement, render, useTick } from "./reakt";
 
 declare namespace JSX {
   interface IntrinsicElements {
@@ -11,18 +11,20 @@ let update = (ev: any) => {
 };
 
 function Test({ name, color }: { name: string; color?: string }) {
-  const renderCount = useRenderCounter();
+  const tick = useTick(2000);
+
   return (
     <div style={`color: ${color}`}>
       <p>
-        Hello <strong>{name}</strong>
-        <input type="text" onkeydown={update} /> (rendered {renderCount} times)
+        Hello <strong>{name}</strong> {tick}
+        <input type="text" onkeydown={update} />
       </p>
     </div>
   );
 }
 
-function App({ tick }: { tick: number }) {
+function App() {
+  const tick = useTick(1000);
   return (
     <div>
       <p>{tick}</p>
@@ -33,8 +35,8 @@ function App({ tick }: { tick: number }) {
   );
 }
 
-setInterval(() => {
-  let component = <App tick={Math.floor(Date.now() / 1000)} />;
-  const root = document.querySelector("#app")!;
-  render(component, root);
-}, 1000);
+// setInterval(() => {
+let component = <App />;
+const root = document.querySelector("#app")!;
+render(component, root);
+// }, 2000);
